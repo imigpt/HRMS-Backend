@@ -39,11 +39,13 @@ const ATTENDANCE_STATUS = {
 
 // Leave Types
 const LEAVE_TYPES = {
+  
+  // CASUAL: 'casual',
+  // ANNUAL: 'annual',
+  // MATERNITY: 'maternity',
+  // PATERNITY: 'paternity',
   SICK: 'sick',
-  CASUAL: 'casual',
-  ANNUAL: 'annual',
-  MATERNITY: 'maternity',
-  PATERNITY: 'paternity',
+  PAID: 'paid',
   UNPAID: 'unpaid'
 };
 
@@ -57,11 +59,13 @@ const LEAVE_STATUS = {
 
 // Default Leave Balances (in days)
 const DEFAULT_LEAVE_BALANCE = {
-  annual: 21,     // 21 days annual leave
-  sick: 14,       // 14 days sick leave
-  casual: 7,      // 7 days casual leave
-  maternity: 90,  // 90 days maternity leave
-  paternity: 7,   // 7 days paternity leave
+  // annual: 21,     // 21 days annual leave
+  // casual: 7,      // 7 days casual leave
+  // maternity: 90,  // 90 days maternity leave
+  // paternity: 7,   // 7 days paternity leave
+
+  sick: 0,       // 1 days sick leave
+  paid:0,        // 1 days paid leave (can be used for any purpose)
   unpaid: 0       // Unlimited unpaid leave (not deducted)
 };
 

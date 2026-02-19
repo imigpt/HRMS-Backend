@@ -7,12 +7,25 @@
 
 const Leave = require('../models/Leave.model');
 const User = require('../models/User.model');
+const LeaveBalance = require('../models/LeaveBalance.model');
 const { 
   LEAVE_STATUS, 
   LEAVE_TYPES, 
   ERROR_MESSAGES,
   ROLES
 } = require('../constants');
+
+/**
+ * Map leave type to the LeaveBalance field name
+ */
+const getBalanceField = (leaveType) => {
+  const map = { paid: 'paid', sick: 'sick', unpaid: 'unpaid' };
+  return map[leaveType] || null;
+};
+const getUsedField = (leaveType) => {
+  const map = { paid: 'usedPaid', sick: 'usedSick', unpaid: 'usedUnpaid' };
+  return map[leaveType] || null;
+};
 
 /**
  * Check for overlapping leave requests
@@ -71,73 +84,52 @@ const calculateLeaveDays = (startDate, endDate) => {
 };
 
 /**
- * Check if user has sufficient leave balance
+ * Check if user has sufficient leave balance from LeaveBalance model
  */
 const checkLeaveBalance = async (userId, leaveType, days) => {
-  const user = await User.findById(userId);
-  
-  if (!user) {
-    throw new Error('User not found');
+  const field = getBalanceField(leaveType);
+  if (!field) throw new Error('Invalid leave type');
+
+  const balance = await LeaveBalance.findOne({ user: userId }).lean();
+  if (!balance) {
+    throw new Error('No leave balance assigned. Contact your admin.');
   }
-  
-  // Unpaid leave is unlimited
-  if (leaveType === LEAVE_TYPES.UNPAID) {
-    return true;
-  }
-  
-  const balance = user.leaveBalance[leaveType] || 0;
-  
-  if (balance < days) {
+
+  const usedField = getUsedField(leaveType);
+  const assigned = balance[field] || 0;
+  const used = balance[usedField] || 0;
+  const remaining = assigned - used;
+
+  if (remaining < days) {
     return false;
   }
-  
   return true;
 };
 
 /**
- * Deduct leave balance from user
+ * Deduct leave balance from LeaveBalance model
  */
 const deductLeaveBalance = async (userId, leaveType, days) => {
-  // Don't deduct for unpaid leave
-  if (leaveType === LEAVE_TYPES.UNPAID) {
-    return;
-  }
-  
-  const user = await User.findById(userId);
-  
-  if (!user) {
-    throw new Error('User not found');
-  }
-  
-  if (!user.leaveBalance[leaveType]) {
-    user.leaveBalance[leaveType] = 0;
-  }
-  
-  user.leaveBalance[leaveType] -= days;
-  await user.save();
+  const usedField = getUsedField(leaveType);
+  if (!usedField) return;
+
+  await LeaveBalance.findOneAndUpdate(
+    { user: userId },
+    { $inc: { [usedField]: days } }
+  );
 };
 
 /**
- * Restore leave balance to user
+ * Restore leave balance in LeaveBalance model
  */
 const restoreLeaveBalance = async (userId, leaveType, days) => {
-  // Don't restore unpaid leave (it's unlimited)
-  if (leaveType === LEAVE_TYPES.UNPAID) {
-    return;
-  }
-  
-  const user = await User.findById(userId);
-  
-  if (!user) {
-    throw new Error('User not found');
-  }
-  
-  if (!user.leaveBalance[leaveType]) {
-    user.leaveBalance[leaveType] = 0;
-  }
-  
-  user.leaveBalance[leaveType] += days;
-  await user.save();
+  const usedField = getUsedField(leaveType);
+  if (!usedField) return;
+
+  await LeaveBalance.findOneAndUpdate(
+    { user: userId },
+    { $inc: { [usedField]: -days } }
+  );
 };
 
 /**
@@ -331,16 +323,23 @@ const getLeaveRequests = async (companyId, filters = {}) => {
 };
 
 /**
- * Get leave balance for user
+ * Get leave balance for user from LeaveBalance model
  */
 const getLeaveBalance = async (userId) => {
-  const user = await User.findById(userId).select('leaveBalance');
+  const balance = await LeaveBalance.findOne({ user: userId }).lean();
   
-  if (!user) {
-    throw new Error('User not found');
+  if (!balance) {
+    return { paid: 0, sick: 0, unpaid: 0, usedPaid: 0, usedSick: 0, usedUnpaid: 0 };
   }
   
-  return user.leaveBalance;
+  return {
+    paid: balance.paid || 0,
+    sick: balance.sick || 0,
+    unpaid: balance.unpaid || 0,
+    usedPaid: balance.usedPaid || 0,
+    usedSick: balance.usedSick || 0,
+    usedUnpaid: balance.usedUnpaid || 0,
+  };
 };
 
 /**

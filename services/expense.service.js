@@ -100,7 +100,7 @@ const createExpense = async (userId, companyId, expenseData) => {
     company: companyId,
     category,
     amount,
-    currency: currency || 'USD',
+    currency: currency || 'INR',
     date: new Date(date),
     description,
     receipt: receipt || null,

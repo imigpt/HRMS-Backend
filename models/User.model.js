@@ -54,6 +54,11 @@ const userSchema = new mongoose.Schema({
     required: function() { return this.role !== 'client'; }
   },
   dateOfBirth: Date,
+  bio: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   address: String,
   profilePhoto: {
     url: String,
@@ -104,12 +109,9 @@ const userSchema = new mongoose.Schema({
   },
   // CRITICAL: Leave balance tracking for employees
   leaveBalance: {
-    annual: { type: Number, default: 21 },    // 21 days annual leave
-    sick: { type: Number, default: 14 },      // 14 days sick leave
-    casual: { type: Number, default: 7 },     // 7 days casual leave
-    maternity: { type: Number, default: 90 }, // 90 days maternity (for female employees)
-    paternity: { type: Number, default: 7 },  // 7 days paternity (for male employees)
-    unpaid: { type: Number, default: 0 }      // Unpaid leave (unlimited)
+    paid: { type: Number, default: 0 },
+    sick: { type: Number, default: 0 },
+    unpaid: { type: Number, default: 0 }
   },
   loginHistory: [loginHistorySchema],
   isEmailVerified: {

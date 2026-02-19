@@ -492,6 +492,45 @@ const reviewEditRequest = async (requestId, reviewerId, action, reviewNote = '')
   return request;
 };
 
+/**
+ * Request half day - Creates or updates attendance record as half-day
+ */
+const requestHalfDay = async (userId, companyId, date, reason) => {
+  const requestedDate = new Date(date);
+  
+  // Don't allow past dates beyond 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  
+  if (requestedDate < sevenDaysAgo) {
+    throw new Error('Cannot request half day for dates older than 7 days');
+  }
+  
+  // Check if attendance record exists for that date
+  const existing = await hasAttendanceForDate(userId, requestedDate);
+  
+  if (existing) {
+    // Update existing record to half-day
+    existing.status = ATTENDANCE_STATUS.HALF_DAY;
+    existing.notes = `Half day request: ${reason}`;
+    await existing.save();
+    return existing;
+  }
+  
+  // Create a new attendance record as half-day
+  const attendance = await Attendance.create({
+    user: userId,
+    company: companyId,
+    date: requestedDate,
+    status: ATTENDANCE_STATUS.HALF_DAY,
+    notes: `Half day request: ${reason}`,
+    isManualEntry: true
+  });
+  
+  return attendance;
+};
+
 module.exports = {
   checkIn,
   checkOut,
@@ -503,5 +542,6 @@ module.exports = {
   createEditRequest,
   getMyEditRequests,
   getPendingEditRequests,
-  reviewEditRequest
+  reviewEditRequest,
+  requestHalfDay
 };

@@ -60,6 +60,13 @@ router.get('/summary', attendanceController.getAttendanceSummary);
 router.post('/edit-request', attendanceController.createEditRequest);
 
 /**
+ * @route   POST /api/attendance/half-day-request
+ * @desc    Submit half day request (Employee)
+ * @access  Private (All authenticated users)
+ */
+router.post('/half-day-request', attendanceController.requestHalfDay);
+
+/**
  * @route   GET /api/attendance/edit-requests
  * @desc    Get my edit requests (Employee)
  * @access  Private (All authenticated users)

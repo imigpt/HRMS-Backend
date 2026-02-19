@@ -16,13 +16,15 @@ const { uploadToCloudinary } = require('../utils/uploadToCloudinary');
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { name, phone, address } = req.body;
+    const { name, phone, address, bio, dateOfBirth } = req.body;
 
     // Build update object
     const updateFields = {};
-    if (name) updateFields.name = name;
-    if (phone) updateFields.phone = phone;
-    if (address) updateFields.address = address;
+    if (name !== undefined) updateFields.name = name;
+    if (phone !== undefined) updateFields.phone = phone;
+    if (address !== undefined) updateFields.address = address;
+    if (bio !== undefined) updateFields.bio = bio;
+    if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
 
     // Handle profile photo upload
     if (req.file) {

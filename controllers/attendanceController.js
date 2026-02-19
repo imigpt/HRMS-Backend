@@ -379,6 +379,46 @@ exports.getPendingEditRequests = async (req, res) => {
 };
 
 /**
+ * @desc    Request half day (Employee)
+ * @route   POST /api/attendance/half-day-request
+ * @access  Private (Employee)
+ */
+exports.requestHalfDay = async (req, res) => {
+  try {
+    const { date, reason } = req.body;
+    const userId = req.user._id;
+    const companyId = req.user.company || null;
+
+    if (!date || !reason) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Date and reason are required'
+      });
+    }
+
+    if (reason.length < 10) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Reason must be at least 10 characters'
+      });
+    }
+
+    const attendance = await attendanceService.requestHalfDay(userId, companyId, date, reason);
+
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      message: 'Half day request submitted successfully',
+      data: attendance
+    });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
  * @desc    Review edit request (HR/Admin)
  * @route   PUT /api/attendance/edit-requests/:requestId
  * @access  Private (HR, Admin)
