@@ -44,24 +44,22 @@ exports.getAllBalances = async (req, res) => {
     const data = users.map((u) => {
       const bal = balanceMap[u._id.toString()] || null;
       return {
-        _id: u._id,
-        name: u.name,
-        email: u.email,
-        employeeId: u.employeeId,
-        role: u.role,
-        department: u.department,
-        position: u.position,
-        balance: bal
-          ? {
-              _id: bal._id,
-              paid: bal.paid,
-              sick: bal.sick,
-              unpaid: bal.unpaid,
-              usedPaid: bal.usedPaid,
-              usedSick: bal.usedSick,
-              usedUnpaid: bal.usedUnpaid,
-            }
-          : { paid: 0, sick: 0, unpaid: 0, usedPaid: 0, usedSick: 0, usedUnpaid: 0 },
+        _id: bal?._id || u._id,
+        user: {
+          _id: u._id,
+          name: u.name,
+          email: u.email,
+          employeeId: u.employeeId,
+          role: u.role,
+          department: u.department,
+          position: u.position,
+        },
+        paid: bal?.paid || 0,
+        sick: bal?.sick || 0,
+        unpaid: bal?.unpaid || 0,
+        usedPaid: bal?.usedPaid || 0,
+        usedSick: bal?.usedSick || 0,
+        usedUnpaid: bal?.usedUnpaid || 0,
       };
     });
 
@@ -168,12 +166,20 @@ exports.assignBalance = async (req, res) => {
  */
 exports.bulkAssign = async (req, res) => {
   try {
-    const { userIds, paid, sick, unpaid } = req.body;
+    let { userIds, paid, sick, unpaid } = req.body;
 
+    // If no userIds provided, auto-fetch all HR & Employee users
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      const userFilter = { role: { $in: ['hr', 'employee'] } };
+      if (req.user.company) userFilter.company = req.user.company;
+      const users = await User.find(userFilter).select('_id').lean();
+      userIds = users.map((u) => u._id);
+    }
+
+    if (userIds.length === 0) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: 'userIds array is required',
+        message: 'No HR or Employee users found to assign balances',
       });
     }
 

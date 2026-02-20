@@ -8,6 +8,7 @@
 const attendanceService = require('../services/attendance.service');
 const { uploadToCloudinary } = require('../utils/uploadToCloudinary');
 const { HTTP_STATUS, SUCCESS_MESSAGES, ERROR_MESSAGES } = require('../constants');
+const { createNotification, notifyHRAndAdmin } = require('./notificationController');
 
 /**
  * @desc    Check in employee with optional photo
@@ -291,6 +292,16 @@ exports.createEditRequest = async (req, res) => {
       attendanceId,
       { requestedCheckIn, requestedCheckOut, reason }
     );
+
+    // Notify HR & Admin
+    await notifyHRAndAdmin(companyId, {
+      title: 'Attendance Edit Request',
+      message: `${req.user.name || 'An employee'} submitted an attendance edit request`,
+      type: 'attendance',
+      senderId: userId,
+      relatedId: editRequest._id,
+      relatedEntityType: 'Attendance',
+    });
     
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
@@ -442,6 +453,20 @@ exports.reviewEditRequest = async (req, res) => {
       action,
       reviewNote
     );
+
+    // Notify the employee who submitted the request
+    const requesterId = request.user?._id || request.user;
+    if (requesterId) {
+      await createNotification({
+        userId: requesterId,
+        title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
+        message: `Your attendance edit request has been ${action}`,
+        type: 'attendance',
+        senderId: req.user._id,
+        relatedId: request._id,
+        relatedEntityType: 'Attendance',
+      });
+    }
     
     res.status(HTTP_STATUS.OK).json({
       success: true,

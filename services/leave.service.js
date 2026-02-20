@@ -156,10 +156,13 @@ const createLeaveRequest = async (userId, companyId, leaveData) => {
     throw new Error(ERROR_MESSAGES.OVERLAPPING_LEAVE);
   }
   
-  // Check balance
-  const hasBalance = await checkLeaveBalance(userId, leaveType, days);
-  if (!hasBalance) {
-    throw new Error(ERROR_MESSAGES.INSUFFICIENT_BALANCE);
+  // Check balance — skip for unpaid (always allowed, requires admin approval)
+  if (leaveType !== 'unpaid') {
+    const hasBalance = await checkLeaveBalance(userId, leaveType, days);
+    if (!hasBalance) {
+      const typeLabel = leaveType === 'paid' ? 'Paid' : 'Sick';
+      throw new Error(`No more ${typeLabel} Leaves left`);
+    }
   }
   
   // Create leave request

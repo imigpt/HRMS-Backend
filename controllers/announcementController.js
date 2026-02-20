@@ -5,6 +5,7 @@
  */
 
 const Announcement = require('../models/Announcement.model');
+const { notifyAllCompanyUsers } = require('./notificationController');
 
 /**
  * @desc    Get all announcements
@@ -123,6 +124,16 @@ exports.createAnnouncement = async (req, res) => {
     const announcement = await Announcement.create(announcementData);
 
     await announcement.populate('createdBy', 'name email');
+
+    // Notify all company users about new announcement
+    await notifyAllCompanyUsers(companyId, {
+      title: `Announcement: ${title}`,
+      message: content.substring(0, 120) + (content.length > 120 ? '...' : ''),
+      type: 'announcement',
+      senderId: req.user._id,
+      relatedId: announcement._id,
+      relatedEntityType: 'Announcement',
+    });
 
     res.status(201).json({
       success: true,

@@ -42,6 +42,7 @@ const jwt = require('jsonwebtoken');
 const Message = require('../models/Message.model');
 const ChatRoom = require('../models/ChatRoom.model');
 const User = require('../models/User.model');
+const { createNotification } = require('../controllers/notificationController');
 
 // Store active socket connections: userId -> Set of socketIds (user can have multiple tabs)
 const activeUsers = new Map();
@@ -284,6 +285,29 @@ const initializeChatSocket = (io) => {
           tempId,
           message: populatedMessage
         });
+
+        // Create DB notifications for offline participants (especially for clients)
+        try {
+          const participants = room.participants.map(p => p.toString());
+          for (const participantId of participants) {
+            if (participantId === userId) continue; // skip sender
+            // Check if user is offline
+            const isOnline = activeUsers.has(participantId) && activeUsers.get(participantId).size > 0;
+            if (!isOnline) {
+              await createNotification({
+                userId: participantId,
+                title: 'New Chat Message',
+                message: `${userName || 'Someone'}: ${content ? content.substring(0, 80) : `[${messageType}]`}`,
+                type: 'chat',
+                senderId: userId,
+                relatedId: roomId,
+                relatedEntityType: 'ChatRoom',
+              });
+            }
+          }
+        } catch (notifErr) {
+          console.error('Chat notification error:', notifErr.message);
+        }
 
         console.log(`📨 Message sent successfully`);
 

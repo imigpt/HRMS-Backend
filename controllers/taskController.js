@@ -7,6 +7,7 @@
 
 const taskService = require('../services/task.service');
 const { HTTP_STATUS, SUCCESS_MESSAGES, ROLES } = require('../constants');
+const { createNotification } = require('./notificationController');
 
 /**
  * @desc    Create task
@@ -32,6 +33,26 @@ exports.createTask = async (req, res) => {
       assignerRole,
       companyId
     );
+
+    // Notify assigned employee(s)
+    const assignedTo = task.assignedTo;
+    if (assignedTo) {
+      const assignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+      for (const assignee of assignees) {
+        const assigneeId = assignee?._id || assignee;
+        if (assigneeId && assigneeId.toString() !== assignerId.toString()) {
+          await createNotification({
+            userId: assigneeId,
+            title: 'New Task Assigned',
+            message: `You have been assigned a new task: ${task.title || ''}`,
+            type: 'task',
+            senderId: assignerId,
+            relatedId: task._id,
+            relatedEntityType: 'Task',
+          });
+        }
+      }
+    }
     
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
@@ -115,6 +136,26 @@ exports.updateTask = async (req, res) => {
       req.user._id,
       req.user.role
     );
+
+    // Notify assigned employee
+    const assignedTo = task.assignedTo;
+    if (assignedTo) {
+      const assignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+      for (const assignee of assignees) {
+        const assigneeId = assignee?._id || assignee;
+        if (assigneeId && assigneeId.toString() !== req.user._id.toString()) {
+          await createNotification({
+            userId: assigneeId,
+            title: 'Task Updated',
+            message: `Task "${task.title || ''}" has been updated`,
+            type: 'task',
+            senderId: req.user._id,
+            relatedId: task._id,
+            relatedEntityType: 'Task',
+          });
+        }
+      }
+    }
     
     res.status(HTTP_STATUS.OK).json({
       success: true,

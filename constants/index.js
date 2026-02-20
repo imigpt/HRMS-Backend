@@ -173,7 +173,7 @@ const ERROR_MESSAGES = {
   INVALID_CHECKOUT: 'Invalid checkout time',
   
   // Leave
-  INSUFFICIENT_BALANCE: 'Insufficient leave balance',
+  INSUFFICIENT_BALANCE: 'No remaining leave balance',
   OVERLAPPING_LEAVE: 'Leave dates overlap with existing leave request',
   CANNOT_MODIFY_APPROVED: 'Cannot modify approved leave',
   

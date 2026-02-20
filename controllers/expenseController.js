@@ -7,6 +7,7 @@
 
 const expenseService = require('../services/expense.service');
 const { HTTP_STATUS, SUCCESS_MESSAGES, ROLES } = require('../constants');
+const { createNotification, notifyHRAndAdmin } = require('./notificationController');
 
 /**
  * @desc    Create expense
@@ -47,6 +48,16 @@ exports.createExpense = async (req, res) => {
     };
     
     const expense = await expenseService.createExpense(userId, companyId, expenseData);
+
+    // Notify HR & Admin
+    await notifyHRAndAdmin(companyId, {
+      title: 'New Expense Claim',
+      message: `${req.user.name || 'An employee'} submitted an expense claim of ${expense.amount || ''}`,
+      type: 'expense',
+      senderId: userId,
+      relatedId: expense._id,
+      relatedEntityType: 'Expense',
+    });
     
     res.status(HTTP_STATUS.CREATED).json({
       success: true,
@@ -159,6 +170,20 @@ exports.approveExpense = async (req, res) => {
       reviewerId,
       reviewNote
     );
+
+    // Notify the expense owner
+    const ownerId = expense.user?._id || expense.user;
+    if (ownerId) {
+      await createNotification({
+        userId: ownerId,
+        title: 'Expense Approved',
+        message: 'Your expense claim has been approved',
+        type: 'expense',
+        senderId: req.user._id,
+        relatedId: expense._id,
+        relatedEntityType: 'Expense',
+      });
+    }
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -195,6 +220,20 @@ exports.rejectExpense = async (req, res) => {
       reviewerId,
       reviewNote
     );
+
+    // Notify the expense owner
+    const ownerId = expense.user?._id || expense.user;
+    if (ownerId) {
+      await createNotification({
+        userId: ownerId,
+        title: 'Expense Rejected',
+        message: `Your expense claim was rejected: ${reviewNote}`,
+        type: 'expense',
+        senderId: req.user._id,
+        relatedId: expense._id,
+        relatedEntityType: 'Expense',
+      });
+    }
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -219,6 +258,20 @@ exports.markAsPaid = async (req, res) => {
     const paidById = req.user._id;
     
     const expense = await expenseService.markAsPaid(req.params.id, paidById);
+
+    // Notify the expense owner
+    const ownerId = expense.user?._id || expense.user;
+    if (ownerId) {
+      await createNotification({
+        userId: ownerId,
+        title: 'Expense Paid',
+        message: 'Your expense claim has been marked as paid',
+        type: 'expense',
+        senderId: req.user._id,
+        relatedId: expense._id,
+        relatedEntityType: 'Expense',
+      });
+    }
     
     res.status(HTTP_STATUS.OK).json({
       success: true,

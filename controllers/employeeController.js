@@ -18,7 +18,6 @@ const { Attendance } = require('../models/Attendance.model');
 exports.getDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
-    const userName = req.user.name;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -26,105 +25,147 @@ exports.getDashboardStats = async (req, res) => {
     const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     // Get today's attendance
-    const todayAttendance = await Attendance.findOne({ 
+    const todayAttendance = await Attendance.findOne({
       user: userId,
       date: { $gte: today, $lt: tomorrow }
     });
 
-    // Get counts and data in parallel
+    // Get all data in parallel
     const [
       activeTasks,
       pendingExpensesData,
-      currentMonthAttendance,
-      totalWorkingDaysInMonth,
       recentTasks,
       recentAnnouncements,
-      userProfile
+      userProfile,
+      leaveByStatus,
+      leaveByType,
+      monthAttendanceByStatus,
+      expenseCount,
     ] = await Promise.all([
-      Task.countDocuments({ 
-        assignedTo: userId,
-        status: { $in: ['todo', 'in-progress'] }
-      }),
-      // Get sum of pending expenses
+      Task.countDocuments({ assignedTo: userId, status: { $in: ['todo', 'in-progress'] } }),
       Expense.aggregate([
         { $match: { user: userId, status: 'pending' } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]),
-      Attendance.countDocuments({
-        user: userId,
-        date: { $gte: currentMonth },
-        'checkIn.time': { $exists: true }
-      }),
-      // Total working days this month (days that have passed)
-      Promise.resolve(new Date().getDate()),
-      // Get recent tasks
-      Task.find({ assignedTo: userId })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select('title status priority deadline'),
-      // Get recent announcements
-      require('../models/Announcement.model').find()
-        .sort({ createdAt: -1 })
-        .limit(3)
-        .select('title message createdAt'),
-      // Get user profile for leave balance
-      User.findById(userId).select('leaveBalance')
+      Task.find({ assignedTo: userId }).sort({ createdAt: -1 }).limit(5).select('title status priority deadline'),
+      require('../models/Announcement.model').find().sort({ createdAt: -1 }).limit(3).select('title message createdAt'),
+      User.findById(userId).select('-password'),
+      // Leave counts grouped by status
+      Leave.aggregate([
+        { $match: { user: userId } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      // Leave counts grouped by type
+      Leave.aggregate([
+        { $match: { user: userId } },
+        { $group: { _id: '$leaveType', count: { $sum: 1 } } }
+      ]),
+      // This month's attendance grouped by status
+      Attendance.aggregate([
+        { $match: { user: userId, date: { $gte: currentMonth } } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      Expense.countDocuments({ user: userId }),
     ]);
 
-    // Calculate pending expenses total
-    const pendingExpensesTotal = pendingExpensesData.length > 0 ? pendingExpensesData[0].total : 0;
+    // Process leave stats
+    const leaveStatusMap = leaveByStatus.reduce((acc, item) => ({ ...acc, [item._id]: item.count }), {});
+    const leaveTypeMap = leaveByType.reduce((acc, item) => ({ ...acc, [item._id]: item.count }), {});
+    const totalLeaves = Object.values(leaveStatusMap).reduce((a, b) => a + b, 0);
 
-    // Calculate attendance percentage for current month
-    const daysInMonth = totalWorkingDaysInMonth;
-    const attendancePercentage = daysInMonth > 0 
-      ? Math.round((currentMonthAttendance / daysInMonth) * 100) 
-      : 0;
+    // Process attendance stats for current month
+    const attMap = monthAttendanceByStatus.reduce((acc, item) => ({ ...acc, [item._id]: item.count }), {});
+    const presentCount = attMap['present'] || 0;
+    const lateCount = attMap['late'] || 0;
+    const halfDayCount = attMap['half-day'] || 0;
+    const totalAttended = presentCount + lateCount + halfDayCount;
 
-    // Calculate working hours for today
-    let workingHours = 0;
-    let workingMinutes = 0;
+    // Approved leaves starting this month (approximation for leave days column)
+    const approvedLeaveThisMonth = await Leave.countDocuments({
+      user: userId,
+      status: 'approved',
+      startDate: { $gte: currentMonth }
+    });
+
+    // Calculate today's working time
+    let workedMinutes = 0;
+    let checkInFormatted = null;
+    let checkOutFormatted = null;
     if (todayAttendance?.checkIn?.time) {
-      const checkInTime = new Date(todayAttendance.checkIn.time);
-      const currentTime = todayAttendance.checkOut?.time 
-        ? new Date(todayAttendance.checkOut.time) 
-        : new Date();
-      const diffMs = currentTime - checkInTime;
-      const totalMinutes = Math.floor(diffMs / (1000 * 60));
-      workingHours = Math.floor(totalMinutes / 60);
-      workingMinutes = totalMinutes % 60;
+      checkInFormatted = new Date(todayAttendance.checkIn.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const checkIn = new Date(todayAttendance.checkIn.time);
+      const checkOut = todayAttendance.checkOut?.time ? new Date(todayAttendance.checkOut.time) : new Date();
+      workedMinutes = Math.max(0, Math.floor((checkOut - checkIn) / 60000));
+      if (todayAttendance.checkOut?.time) {
+        checkOutFormatted = new Date(todayAttendance.checkOut.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+    const workedHours = Math.floor(workedMinutes / 60);
+    const workedMins = workedMinutes % 60;
+    const workProgress = Math.min(Math.round((workedMinutes / (8 * 60)) * 100), 100);
+
+    // Minutes late (past 9 AM standard check-in)
+    let lateMinutes = 0;
+    if (todayAttendance?.checkIn?.time) {
+      const checkIn = new Date(todayAttendance.checkIn.time);
+      const standard = new Date(checkIn);
+      standard.setHours(9, 0, 0, 0);
+      if (checkIn > standard) lateMinutes = Math.floor((checkIn - standard) / 60000);
     }
 
-    const workTarget = 8; // 8 hours target
-    const workProgress = workingHours > 0 
-      ? Math.round((workingHours / workTarget) * 100) 
-      : 0;
+    const pendingExpensesTotal = pendingExpensesData.length > 0 ? pendingExpensesData[0].total : 0;
+    const daysElapsed = today.getDate();
+    const attendancePercentage = daysElapsed > 0 ? Math.min(Math.round((totalAttended / daysElapsed) * 100), 100) : 0;
 
     res.status(200).json({
       success: true,
       data: {
         user: {
-          name: userName
+          name: userProfile?.name,
+          email: userProfile?.email,
+          phone: userProfile?.phone,
+          address: userProfile?.address,
+          position: userProfile?.position,
+          department: userProfile?.department,
+          joinDate: userProfile?.joinDate,
+          profilePhoto: userProfile?.profilePhoto?.url,
         },
         stats: {
-          leaveBalance: userProfile?.leaveBalance || 0,
+          leaveBalance: (userProfile?.leaveBalance?.paid || 0) + (userProfile?.leaveBalance?.sick || 0),
           activeTasks,
           pendingExpenses: pendingExpensesTotal,
-          attendancePercentage
+          expenseCount,
+          attendancePercentage,
         },
-        attendance: {
+        leaveStats: {
+          total: totalLeaves,
+          approved: leaveStatusMap['approved'] || 0,
+          rejected: leaveStatusMap['rejected'] || 0,
+          pending: leaveStatusMap['pending'] || 0,
+          paidLeaves: leaveTypeMap['paid'] || 0,
+          unpaidLeaves: leaveTypeMap['unpaid'] || 0,
+        },
+        attendanceStats: {
+          total: totalAttended,
+          present: presentCount,
+          leaveDays: approvedLeaveThisMonth,
+          halfDay: halfDayCount,
+          late: lateCount,
+          attendancePercentage,
+        },
+        todayAttendance: {
           isPunchedIn: !!(todayAttendance?.checkIn?.time && !todayAttendance?.checkOut?.time),
-          punchTime: todayAttendance?.checkIn?.time 
-            ? new Date(todayAttendance.checkIn.time).toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })
-            : null,
-          workingHours: `${workingHours}h ${workingMinutes}m`,
+          checkIn: checkInFormatted,
+          checkOut: checkOutFormatted,
+          workedMinutes,
+          workedHours,
+          workedMins,
           workProgress,
-          workTarget
+          lateMinutes,
+          officeHours: 8,
         },
         tasks: recentTasks,
-        announcements: recentAnnouncements
+        announcements: recentAnnouncements,
       }
     });
   } catch (error) {

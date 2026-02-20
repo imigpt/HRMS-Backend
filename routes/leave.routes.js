@@ -60,27 +60,49 @@ router.get(
 /**
  * @route   PUT /api/leave/:id/approve
  * @desc    Approve leave request
- * @access  Private (HR, Admin)
+ * @access  Private (Admin only)
  */
 router.put(
   '/:id/approve',
-  authorize('admin', 'hr'),
+  authorize('admin'),
   validateObjectId('id'),
-  enforceCompanyAccess(Leave),
   leaveController.approveLeave
 );
 
 /**
  * @route   PUT /api/leave/:id/reject
  * @desc    Reject leave request
- * @access  Private (HR, Admin)
+ * @access  Private (Admin only)
  */
 router.put(
   '/:id/reject',
-  authorize('admin', 'hr'),
+  authorize('admin'),
   validateObjectId('id'),
-  enforceCompanyAccess(Leave),
   leaveController.rejectLeave
+);
+
+/**
+ * @route   PUT /api/leave/:id
+ * @desc    Edit leave request (Admin only)
+ * @access  Private (Admin only)
+ */
+router.put(
+  '/:id',
+  authorize('admin'),
+  validateObjectId('id'),
+  leaveController.editLeave
+);
+
+/**
+ * @route   DELETE /api/leave/:id
+ * @desc    Delete leave request (Admin only)
+ * @access  Private (Admin only)
+ */
+router.delete(
+  '/:id',
+  authorize('admin'),
+  validateObjectId('id'),
+  leaveController.deleteLeave
 );
 
 /**
