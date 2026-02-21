@@ -1,0 +1,160 @@
+{
+  "info": {
+    "name": "HRMS Backend - Postman Collection",
+    "description": "Collection of commonly-used HRMS API endpoints for local testing. Set the `base_url` and `jwt` variables before running requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "jwt",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth","login"] }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth","me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "url": { "raw": "{{base_url}}/employee/dashboard", "host": ["{{base_url}}"], "path": ["employee","dashboard"] }
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "url": { "raw": "{{base_url}}/employee/profile", "host": ["{{base_url}}"], "path": ["employee","profile"] }
+          }
+        },
+        {
+          "name": "Update Profile (multipart)",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Updated Name", "type": "text" },
+                { "key": "phone", "value": "1234567890", "type": "text" },
+                { "key": "profilePhoto", "type": "file" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/employee/profile", "host": ["{{base_url}}"], "path": ["employee","profile"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Leave",
+      "item": [
+        {
+          "name": "Get Leave Balance",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "url": { "raw": "{{base_url}}/leave/balance", "host": ["{{base_url}}"], "path": ["leave","balance"] }
+          }
+        },
+        {
+          "name": "Apply Leave",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" }, { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"leaveType\": \"paid\",\n  \"startDate\": \"2026-03-01\",\n  \"endDate\": \"2026-03-03\",\n  \"reason\": \"Personal\"\n}" },
+            "url": { "raw": "{{base_url}}/leave", "host": ["{{base_url}}"], "path": ["leave"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Check-In (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "body": { "mode": "formdata", "formdata": [ { "key": "note", "value": "Morning check-in", "type": "text" }, { "key": "photo", "type": "file" } ] },
+            "url": { "raw": "{{base_url}}/attendance/check-in", "host": ["{{base_url}}"], "path": ["attendance","check-in"] }
+          }
+        },
+        {
+          "name": "Check-Out",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" }, { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{ \"note\": \"Leaving for the day\" }" },
+            "url": { "raw": "{{base_url}}/attendance/check-out", "host": ["{{base_url}}"], "path": ["attendance","check-out"] }
+          }
+        },
+        {
+          "name": "Today Attendance",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "url": { "raw": "{{base_url}}/attendance/today", "host": ["{{base_url}}"], "path": ["attendance","today"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Announcements",
+      "item": [
+        {
+          "name": "List Announcements",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "url": { "raw": "{{base_url}}/announcements", "host": ["{{base_url}}"], "path": ["announcements"] }
+          }
+        },
+        {
+          "name": "Create Announcement",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{jwt}}" } ],
+            "body": { "mode": "formdata", "formdata": [ { "key": "title", "value": "All-hands", "type": "text" }, { "key": "content", "value": "All-hands meeting at 4pm", "type": "text" } ] },
+            "url": { "raw": "{{base_url}}/announcements", "host": ["{{base_url}}"], "path": ["announcements"] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -31,6 +31,7 @@ const hrRoutes = require('./routes/hr.routes');
 const clientRoutes = require('./routes/client.routes');
 const policyRoutes = require('./routes/policy.routes');
 const leaveBalanceRoutes = require('./routes/leaveBalance.routes');
+const payrollRoutes = require('./routes/payroll.routes');
 
 // Import Socket.io chat handler
 const { initializeChatSocket } = require('./socket/chatSocket');
@@ -92,6 +93,7 @@ app.use('/api/hr', hrRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/policies', policyRoutes);
 app.use('/api/leave-balance', leaveBalanceRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
