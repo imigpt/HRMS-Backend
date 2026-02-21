@@ -144,6 +144,10 @@ exports.getDashboardStats = async (req, res) => {
           pending: leaveStatusMap['pending'] || 0,
           paidLeaves: leaveTypeMap['paid'] || 0,
           unpaidLeaves: leaveTypeMap['unpaid'] || 0,
+          // Remaining leave balance from user profile
+          paidBalance: userProfile?.leaveBalance?.paid || 0,
+          sickBalance: userProfile?.leaveBalance?.sick || 0,
+          unpaidBalance: userProfile?.leaveBalance?.unpaid || 0,
         },
         attendanceStats: {
           total: totalAttended,
