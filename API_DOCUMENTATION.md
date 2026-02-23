@@ -430,4 +430,4 @@ Notes: The frontend flow for forgot password should call `POST /api/auth/forgot-
 
 ---
 
-If you want, I can append cURL examples or a ready-made Postman collection for these endpoints to this document. 
+If you want, I can append cURL examples or a ready-made Postman collection for these endpoints to this document.
