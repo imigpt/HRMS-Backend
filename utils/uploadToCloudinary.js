@@ -1,43 +1,43 @@
-const cloudinary = require('cloudinary').v2;
+// Use shared cloudinary config (reads CLOUDINARY_* env vars once on startup)
+const cloudinary = require('../config/cloudinary.config');
 const streamifier = require('streamifier');
 
-// Configure cloudinary (make sure env variables are set)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
 /**
- * Upload file buffer to Cloudinary
+ * Upload file buffer to Cloudinary.
+ * Image transformations are ONLY applied when resource_type is explicitly 'image'
+ * to avoid Cloudinary rejecting non-image files (PDFs, audio, video, etc.)
  * @param {Buffer} buffer - File buffer from multer memory storage
- * @param {Object} options - Upload options (folder, resource_type, etc.)
+ * @param {Object} options - Upload options (folder, resource_type, public_id, etc.)
  * @returns {Promise<Object>} - Full Cloudinary upload result
  */
 const uploadToCloudinary = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
-    const defaultOptions = {
+    const resourceType = options.resource_type || 'auto';
+
+    const uploadOptions = {
       folder: options.folder || 'uploads',
-      resource_type: options.resource_type || 'auto',
+      resource_type: resourceType,
+      ...options, // caller options take precedence
     };
 
-    // Add image transformations only for images
-    if (defaultOptions.resource_type === 'image' || defaultOptions.resource_type === 'auto') {
-      defaultOptions.transformation = [
+    // Apply image optimisation ONLY for explicitly image uploads
+    // (not for 'auto' which also handles raw, video, audio, documents)
+    if (resourceType === 'image') {
+      uploadOptions.transformation = uploadOptions.transformation || [
         { width: 1920, height: 1920, crop: 'limit' },
-        { quality: 'auto' }
+        { quality: 'auto' },
       ];
     }
 
     const uploadStream = cloudinary.uploader.upload_stream(
-      { ...defaultOptions, ...options },
+      uploadOptions,
       (error, result) => {
         if (error) {
           console.error('❌ Cloudinary upload error:', error);
           reject(error);
         } else {
           console.log('✅ Cloudinary upload success:', result.public_id);
-          resolve(result); // Return full result object
+          resolve(result);
         }
       }
     );
@@ -46,4 +46,14 @@ const uploadToCloudinary = (buffer, options = {}) => {
   });
 };
 
-module.exports = { uploadToCloudinary };
+/**
+ * Delete a resource from Cloudinary by public_id.
+ * @param {string} publicId - The public_id of the resource to delete
+ * @param {Object} options - Extra options e.g. { resource_type: 'raw' }
+ * @returns {Promise<Object>}
+ */
+const deleteFromCloudinary = (publicId, options = {}) => {
+  return cloudinary.uploader.destroy(publicId, options);
+};
+
+module.exports = { uploadToCloudinary, deleteFromCloudinary };

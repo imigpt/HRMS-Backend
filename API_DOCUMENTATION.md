@@ -297,3 +297,137 @@ All require authentication; write actions require `admin`.
 If you want, I can:
 - Generate a Postman collection for all endpoints.
 - Expand each endpoint with full request/response JSON examples by reading the corresponding controller and validator files.
+
+---
+
+## New Auth endpoints added 23/2/2026 (EVENING)
+The following endpoints were integrated on 23/2/2026. All routes are mounted under `/api/auth`.
+
+1) Change own password
+- Endpoint: `PUT /api/auth/change-password`
+- Auth: Required (Bearer token)
+- Body (JSON):
+
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-password"
+}
+```
+
+- Success response (200):
+
+```json
+{
+  "success": true,
+  "message": "Password changed successfully"
+}
+```
+
+Notes: the user must provide their current password. The server validates the current password and saves the new password with bcrypt hashing.
+
+2) Admin/HR reset another user's password
+- Endpoint: `PUT /api/auth/admin-reset-password/:userId`
+- Auth: Required (Bearer token). Access control: `admin` and `hr` roles only (HR is restricted to employee/client accounts by business rules).
+- Path params:
+  - `userId` — the MongoDB `_id` of the user whose password will be reset.
+- Body (JSON): (optional)
+
+```json
+{
+  "newPassword": "OptionalNewPassword"
+}
+```
+
+- Behavior:
+  - If `newPassword` is provided in the body, the server sets that password for the user.
+  - If not provided, the server generates a secure random 12-character password and sets it.
+  - For HR users the endpoint will only operate on users in allowed roles (employee/client) per server-side checks.
+
+- Success response (200):
+
+```json
+{
+  "success": true,
+  "message": "Password reset successfully",
+  "password": "GeneratedOrProvidedPassword" // present only when server returns the generated password
+}
+```
+
+3) Generate a secure random password (helper)
+- Endpoint: `GET /api/auth/generate-password`
+- Auth: Required (Bearer token). Access control: `admin` and `hr` roles.
+- Query: none
+- Success response (200):
+
+```json
+{
+  "success": true,
+  "password": "Abc12!@#XyZ"
+}
+```
+
+Notes: this endpoint returns a secure, generated password string suitable for use when resetting accounts.
+
+4) List user credentials (paginated)
+- Endpoint: `GET /api/auth/user-credentials`
+- Auth: Required (Bearer token). Access control: `admin` and `hr` roles (HR filtered to employee/client scope).
+- Query parameters:
+  - `page` (optional, default 1)
+  - `limit` (optional, default 10)
+  - `search` (optional) — matches name, email, or employeeId
+  - `role` (optional) — filter by role (e.g., `employee`, `hr`, `admin`, `client`)
+
+- Success response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "603d...",
+      "employeeId": "EMP-001",
+      "name": "Jane Doe",
+      "email": "jane@example.com",
+      "role": "employee",
+      "department": "Engineering",
+      "position": "Software Engineer",
+      "status": "active",
+      "profilePhoto": "https://.../photo.jpg",
+      "joinDate": "2023-01-15"
+    }
+  ],
+  "total": 123,
+  "page": 1,
+  "totalPages": 13
+}
+```
+
+Notes: The endpoint returns user metadata only; passwords are never exposed. Use this endpoint to populate user credential management UIs (reset/generate password actions are separate).
+
+5) Reset password (existing endpoint — updated signature)
+- Endpoint: `PUT /api/auth/reset-password` (or existing route used for password resets)
+- Body (JSON):
+
+```json
+{
+  "email": "user@example.com",
+  "resetToken": "123456", // the 6-digit OTP/token sent to email
+  "newPassword": "new-password"
+}
+```
+
+- Success response (200):
+
+```json
+{
+  "success": true,
+  "message": "Password has been reset"
+}
+```
+
+Notes: The frontend flow for forgot password should call `POST /api/auth/forgot-password` with `{ email }` to trigger an email with a 6-digit code and then call this endpoint with `email`, `resetToken` and `newPassword`.
+
+---
+
+If you want, I can append cURL examples or a ready-made Postman collection for these endpoints to this document. 

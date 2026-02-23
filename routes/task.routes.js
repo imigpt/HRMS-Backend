@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
 const { validateTask, validateObjectId } = require('../middleware/validator');
 const { enforceCompanyAccess } = require('../middleware/companyIsolation.middleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -23,21 +23,21 @@ router.use(protect);
  * @desc    Get task statistics
  * @access  Private (All authenticated users)
  */
-router.get('/statistics', taskController.getTaskStatistics);
+router.get('/statistics', checkPermission('tasks', 'view'), taskController.getTaskStatistics);
 
 /**
  * @route   POST /api/tasks
  * @desc    Create new task
  * @access  Private (All authenticated users)
  */
-router.post('/', validateTask, taskController.createTask);
+router.post('/', checkPermission('tasks', 'create'), validateTask, taskController.createTask);
 
 /**
  * @route   GET /api/tasks
  * @desc    Get all tasks (filtered by role)
  * @access  Private (All authenticated users)
  */
-router.get('/', taskController.getTasks);
+router.get('/', checkPermission('tasks', 'view'), taskController.getTasks);
 
 /**
  * @route   GET /api/tasks/:id

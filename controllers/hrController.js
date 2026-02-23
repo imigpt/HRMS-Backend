@@ -265,7 +265,7 @@ exports.createEmployee = async (req, res) => {
     if (req.file) {
       try {
         console.log('📸 HR: Uploading profile photo to Cloudinary...');
-        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos' });
+        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos', resource_type: 'image' });
         profilePhoto = {
           url: uploadResult.secure_url,
           publicId: uploadResult.public_id
@@ -341,7 +341,7 @@ exports.updateEmployee = async (req, res) => {
     if (req.file) {
       try {
         console.log('📸 HR: Uploading profile photo for employee:', req.params.id);
-        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos' });
+        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos', resource_type: 'image' });
         updateFields.profilePhoto = {
           url: uploadResult.secure_url,
           publicId: uploadResult.public_id

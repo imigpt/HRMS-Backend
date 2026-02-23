@@ -229,7 +229,9 @@ exports.addAttachment = async (req, res) => {
 
     const uploadResult = await uploadToCloudinary(req.file.buffer, {
       folder: 'task-attachments',
-      resource_type: resourceType
+      resource_type: resourceType,
+      use_filename: true,
+      unique_filename: true
     });
 
     const attachmentData = {

@@ -1036,7 +1036,9 @@ exports.uploadMedia = async (req, res) => {
     
     const result = await uploadToCloudinary(req.file.buffer, {
       folder,
-      resource_type: messageType === 'voice' ? 'video' : 'auto'
+      resource_type: messageType === 'voice' ? 'video' : 'auto',
+      use_filename: true,
+      unique_filename: true
     });
 
     console.log('   ✅ Cloudinary upload successful:', result.secure_url);

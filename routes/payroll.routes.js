@@ -7,7 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
 const payrollController = require('../controllers/payrollController');
 
 // All routes require authentication
@@ -16,13 +16,13 @@ router.use(protect);
 // ============ EMPLOYEE SALARY ============
 
 // My salary (HR/Employee)
-router.get('/salaries/me', payrollController.getMySalary);
+router.get('/salaries/me', checkPermission('payroll', 'view'), payrollController.getMySalary);
 
 // All salaries (Admin sees all, HR/Employee see own)
-router.get('/salaries', payrollController.getAllSalaries);
+router.get('/salaries', checkPermission('payroll', 'view'), payrollController.getAllSalaries);
 
 // Get salary by ID
-router.get('/salaries/:id', payrollController.getSalaryById);
+router.get('/salaries/:id', checkPermission('payroll', 'view'), payrollController.getSalaryById);
 
 // Admin only: create/update/delete salary
 router.post('/salaries', authorize('admin'), payrollController.createSalary);

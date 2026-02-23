@@ -330,6 +330,8 @@ exports.getMyLeaves = async (req, res) => {
 
     const leaves = await Leave.find(filter)
       .sort({ createdAt: -1 })
+      .populate('user', 'name employeeId department position email')
+      .populate('reviewedBy', 'name employeeId')
       .lean();
 
     res.status(200).json({

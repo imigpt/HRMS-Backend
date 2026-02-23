@@ -30,7 +30,7 @@ exports.updateProfile = async (req, res, next) => {
     if (req.file) {
       try {
         console.log('📸 Uploading profile photo for user:', userId);
-        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos' });
+        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos', resource_type: 'image' });
         updateFields.profilePhoto = {
           url: uploadResult.secure_url,
           publicId: uploadResult.public_id
@@ -207,7 +207,7 @@ exports.updateUser = async (req, res, next) => {
       try {
         const { uploadToCloudinary } = require('../utils/uploadToCloudinary');
         console.log('📸 Admin: Uploading profile photo for user:', id);
-        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos' });
+        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos', resource_type: 'image' });
         updateFields.profilePhoto = {
           url: uploadResult.secure_url,
           publicId: uploadResult.public_id

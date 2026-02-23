@@ -6,6 +6,7 @@
  */
 
 const leaveService = require('../services/leave.service');
+const Leave = require('../models/Leave.model');
 const { HTTP_STATUS, SUCCESS_MESSAGES, ROLES } = require('../constants');
 
 /**
@@ -120,6 +121,17 @@ exports.approveLeave = async (req, res) => {
   try {
     const { reviewNote } = req.body;
     const reviewerId = req.user._id;
+
+    // Only admin can approve leave requests submitted by HR users
+    const leaveDoc = await Leave.findById(req.params.id).populate('user', 'role');
+    if (leaveDoc && leaveDoc.user && leaveDoc.user.role === 'hr') {
+      if (req.user.role !== 'admin') {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          message: 'Only admin can approve HR leave requests'
+        });
+      }
+    }
     
     const leave = await leaveService.approveLeave(
       req.params.id, 
@@ -149,6 +161,17 @@ exports.rejectLeave = async (req, res) => {
   try {
     const { reviewNote } = req.body;
     const reviewerId = req.user._id;
+
+    // Only admin can reject leave requests submitted by HR users
+    const leaveDoc = await Leave.findById(req.params.id).populate('user', 'role');
+    if (leaveDoc && leaveDoc.user && leaveDoc.user.role === 'hr') {
+      if (req.user.role !== 'admin') {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          message: 'Only admin can reject HR leave requests'
+        });
+      }
+    }
     
     if (!reviewNote) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({

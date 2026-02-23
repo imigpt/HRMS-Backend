@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
 const { validateAttendance, validateObjectId, validateDateRange } = require('../middleware/validator');
 const { enforceCompanyAccess } = require('../middleware/companyIsolation.middleware');
 const attendanceController = require('../controllers/attendanceController');
@@ -22,35 +22,35 @@ router.use(protect);
  * @desc    Check in for the day (with optional photo upload)
  * @access  Private (All authenticated users)
  */
-router.post('/check-in', upload.single('photo'), attendanceController.checkIn);
+router.post('/check-in', checkPermission('attendance', 'create'), upload.single('photo'), attendanceController.checkIn);
 
 /**
  * @route   POST /api/attendance/check-out
  * @desc    Check out for the day
  * @access  Private (All authenticated users)
  */
-router.post('/check-out', validateAttendance, attendanceController.checkOut);
+router.post('/check-out', checkPermission('attendance', 'create'), validateAttendance, attendanceController.checkOut);
 
 /**
  * @route   GET /api/attendance/today
  * @desc    Get today's attendance status
  * @access  Private (All authenticated users)
  */
-router.get('/today', attendanceController.getTodayAttendance);
+router.get('/today', checkPermission('attendance', 'view'), attendanceController.getTodayAttendance);
 
 /**
  * @route   GET /api/attendance/my-attendance
  * @desc    Get my attendance records
  * @access  Private (All authenticated users)
  */
-router.get('/my-attendance', validateDateRange, attendanceController.getMyAttendance);
+router.get('/my-attendance', checkPermission('attendance', 'view'), validateDateRange, attendanceController.getMyAttendance);
 
 /**
  * @route   GET /api/attendance/summary
  * @desc    Get attendance summary for a month
  * @access  Private (All authenticated users)
  */
-router.get('/summary', attendanceController.getAttendanceSummary);
+router.get('/summary', checkPermission('attendance', 'view'), attendanceController.getAttendanceSummary);
 
 /**
  * @route   POST /api/attendance/edit-request

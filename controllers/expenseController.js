@@ -25,7 +25,9 @@ exports.createExpense = async (req, res) => {
         const { uploadToCloudinary } = require('../utils/uploadToCloudinary');
         const result = await uploadToCloudinary(req.file.buffer, { 
           folder: 'expense-receipts',
-          resource_type: 'auto'
+          resource_type: 'auto',
+          use_filename: true,
+          unique_filename: true
         });
         receiptData = {
           url: result.secure_url,

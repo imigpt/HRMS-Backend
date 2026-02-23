@@ -55,3 +55,51 @@ exports.authorize = (...roles) => {
     next();
   };
 };
+
+/**
+ * Check DB-based module permission for the user's role.
+ * Admin always passes. For hr/employee, checks the Role collection.
+ * If no role is found in DB, falls back to allowing access (legacy behavior).
+ * 
+ * Usage: checkPermission('attendance', 'view')
+ *        checkPermission('leaves', 'create')
+ */
+exports.checkPermission = (module, action = 'view') => {
+  return async (req, res, next) => {
+    try {
+      // Admin always has full access
+      if (req.user.role === 'admin') return next();
+
+      const Role = require('../models/Role.model');
+      const role = await Role.findOne({ roleName: req.user.role, status: 'active' });
+
+      // If no role in DB yet, allow access (fallback to legacy behavior)
+      // This ensures the app works before admin seeds roles
+      if (!role || !role.permissions || role.permissions.length === 0) {
+        return next();
+      }
+
+      const perm = role.permissions.find(p => p.module === module);
+      if (!perm) {
+        // Module not listed in permissions = no access
+        return res.status(403).json({
+          success: false,
+          message: `You do not have access to ${module}`
+        });
+      }
+
+      if (!perm.actions[action]) {
+        return res.status(403).json({
+          success: false,
+          message: `You do not have ${action} permission for ${module}`
+        });
+      }
+
+      next();
+    } catch (error) {
+      // On error, allow through (don't break the app)
+      console.error('Permission check error:', error.message);
+      next();
+    }
+  };
+};

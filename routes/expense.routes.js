@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
 const { validateExpense, validateObjectId, validateDateRange } = require('../middleware/validator');
 const { enforceCompanyAccess } = require('../middleware/companyIsolation.middleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -23,21 +23,21 @@ router.use(protect);
  * @desc    Get expense statistics
  * @access  Private (All authenticated users)
  */
-router.get('/statistics', validateDateRange, expenseController.getExpenseStatistics);
+router.get('/statistics', checkPermission('expenses', 'view'), validateDateRange, expenseController.getExpenseStatistics);
 
 /**
  * @route   POST /api/expenses
  * @desc    Create new expense
  * @access  Private (All authenticated users)
  */
-router.post('/', upload.single('receipt'), validateExpense, expenseController.createExpense);
+router.post('/', checkPermission('expenses', 'create'), upload.single('receipt'), validateExpense, expenseController.createExpense);
 
 /**
  * @route   GET /api/expenses
  * @desc    Get all expenses (filtered by role)
  * @access  Private (All authenticated users)
  */
-router.get('/', validateDateRange, expenseController.getExpenses);
+router.get('/', checkPermission('expenses', 'view'), validateDateRange, expenseController.getExpenses);
 
 /**
  * @route   GET /api/expenses/:id

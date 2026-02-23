@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
 const { validateLeaveRequest, validateObjectId, validateDateRange } = require('../middleware/validator');
 const { enforceCompanyAccess } = require('../middleware/companyIsolation.middleware');
 const leaveController = require('../controllers/leaveController');
@@ -22,28 +22,28 @@ router.use(protect);
  * @desc    Get leave balance
  * @access  Private (All authenticated users)
  */
-router.get('/balance', leaveController.getLeaveBalance);
+router.get('/balance', checkPermission('leaves', 'view'), leaveController.getLeaveBalance);
 
 /**
  * @route   GET /api/leave/statistics
  * @desc    Get leave statistics
  * @access  Private (All authenticated users)
  */
-router.get('/statistics', leaveController.getLeaveStatistics);
+router.get('/statistics', checkPermission('leaves', 'view'), leaveController.getLeaveStatistics);
 
 /**
  * @route   POST /api/leave
  * @desc    Create leave request
  * @access  Private (All authenticated users)
  */
-router.post('/', validateLeaveRequest, leaveController.createLeaveRequest);
+router.post('/', checkPermission('leaves', 'create'), validateLeaveRequest, leaveController.createLeaveRequest);
 
 /**
  * @route   GET /api/leave
  * @desc    Get leave requests (filtered by role)
  * @access  Private (All authenticated users)
  */
-router.get('/', validateDateRange, leaveController.getLeaveRequests);
+router.get('/', checkPermission('leaves', 'view'), validateDateRange, leaveController.getLeaveRequests);
 
 /**
  * @route   GET /api/leave/:id

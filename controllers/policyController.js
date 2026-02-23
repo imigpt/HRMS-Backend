@@ -1,6 +1,6 @@
 const CompanyPolicy = require('../models/CompanyPolicy.model');
 const { uploadToCloudinary } = require('../utils/uploadToCloudinary');
-const cloudinary = require('cloudinary').v2;
+const cloudinary = require('../config/cloudinary.config');
 const axios = require('axios');
 
 /**

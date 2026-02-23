@@ -18,10 +18,10 @@ router.put('/change-password', authorize('employee'), employeeController.changeP
 
 // Employee's own data
 router.get('/tasks', authorize('employee'), employeeController.getMyTasks);
-router.get('/leaves', authorize('employee'), employeeController.getMyLeaves);
+router.get('/leaves', authorize('employee', 'hr'), employeeController.getMyLeaves);
 router.get('/expenses', authorize('employee'), employeeController.getMyExpenses);
 router.get('/attendance', authorize('employee'), employeeController.getMyAttendance);
-router.get('/leave-balance', authorize('employee'), employeeController.getLeaveBalance);
+router.get('/leave-balance', authorize('employee', 'hr'), employeeController.getLeaveBalance);
 
 // Team and collaboration
 router.get('/team', authorize('employee'), employeeController.getTeamMembers);

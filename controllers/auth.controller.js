@@ -235,7 +235,7 @@ exports.register = async (req, res, next) => {
     if (req.file) {
       try {
         console.log('📸 Uploading profile photo to Cloudinary...');
-        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos' });
+        const uploadResult = await uploadToCloudinary(req.file.buffer, { folder: 'profile-photos', resource_type: 'image' });
         profilePhoto = {
           url: uploadResult.secure_url,
           publicId: uploadResult.public_id
@@ -553,3 +553,150 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Change own password (authenticated user)
+ * @route   PUT /api/auth/change-password
+ * @access  Private
+ */
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword; // pre-save hook will hash
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Admin/HR reset password for a user
+ * @route   PUT /api/auth/admin-reset-password/:userId
+ * @access  Private (Admin / HR)
+ */
+exports.adminResetPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const targetUser = await User.findById(req.params.userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // HR can only reset employee & client passwords
+    if (req.user.role === 'hr' && (targetUser.role === 'admin' || targetUser.role === 'hr')) {
+      return res.status(403).json({ success: false, message: 'HR can only reset passwords for employees and clients' });
+    }
+
+    const password = newPassword || generateRandomPassword();
+    targetUser.password = password; // pre-save hook will hash
+    await targetUser.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully',
+      generatedPassword: !newPassword ? password : undefined
+    });
+  } catch (error) {
+    console.error('Admin reset password error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Generate random password
+ * @route   GET /api/auth/generate-password
+ * @access  Private (Admin / HR)
+ */
+exports.generatePassword = async (req, res) => {
+  try {
+    const password = generateRandomPassword();
+    res.status(200).json({ success: true, data: { password } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Get user credentials list (for Admin/HR)
+ * @route   GET /api/auth/user-credentials
+ * @access  Private (Admin / HR)
+ */
+exports.getUserCredentials = async (req, res) => {
+  try {
+    const { role, search, page = 1, limit = 20 } = req.query;
+    const filter = {};
+
+    // HR can only see employees and clients
+    if (req.user.role === 'hr') {
+      filter.role = { $in: ['employee', 'client'] };
+    } else if (role && role !== 'all') {
+      filter.role = role;
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { employeeId: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const users = await User.find(filter)
+      .select('employeeId name email role department position status profilePhoto joinDate')
+      .sort({ role: 1, name: 1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await User.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Helper: Generate random password
+function generateRandomPassword(length = 12) {
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const digits = '0123456789';
+  const special = '@#$!%*?&';
+  const all = upper + lower + digits + special;
+  let password = upper[Math.floor(Math.random() * upper.length)]
+    + lower[Math.floor(Math.random() * lower.length)]
+    + digits[Math.floor(Math.random() * digits.length)]
+    + special[Math.floor(Math.random() * special.length)];
+  for (let i = password.length; i < length; i++) {
+    password += all[Math.floor(Math.random() * all.length)];
+  }
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}

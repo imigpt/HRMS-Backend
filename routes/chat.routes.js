@@ -1,12 +1,12 @@
 const express = require('express');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, checkPermission } = require('../middleware/auth.middleware');
 const upload = require('../middleware/uploadMiddleware');
 const chatController = require('../controllers/chatController');
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(protect);
+// All routes require authentication + chat permission
+router.use(protect, checkPermission('chat', 'view'));
 
 // ============================================
 // CHAT ROOMS

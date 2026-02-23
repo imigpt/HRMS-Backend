@@ -353,12 +353,13 @@ exports.getPendingEditRequests = async (req, res) => {
     console.log('User Role:', userRole);
     console.log('Company ID:', companyId);
     
-    // HR must have a company assigned
+    // HR must have a company assigned — return empty list gracefully if not yet assigned
     if (userRole === 'hr' && !companyId) {
-      console.log('ERROR: HR user has no company assigned');
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        message: 'HR user is not associated with any company'
+      console.log('WARN: HR user has no company assigned — returning empty request list');
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        count: 0,
+        data: []
       });
     }
     

@@ -152,7 +152,7 @@ exports.createClient = async (req, res) => {
     let profilePhoto = null;
     if (req.file) {
       try {
-        const result = await uploadToCloudinary(req.file.buffer, { folder: 'client-photos' });
+        const result = await uploadToCloudinary(req.file.buffer, { folder: 'client-photos', resource_type: 'image' });
         profilePhoto = { url: result.secure_url, publicId: result.public_id };
       } catch (err) {
         console.error('Client photo upload error:', err);

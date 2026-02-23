@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
 const upload = require('../middleware/uploadMiddleware');
 const {
   getPolicies,
@@ -13,10 +13,10 @@ const {
 // All routes require authentication
 router.use(protect);
 
-// Read access: all authenticated roles
-router.get('/', getPolicies);
-router.get('/:id', getPolicyById);
-router.get('/:id/download', downloadPolicy);
+// Read access: all authenticated roles with permission
+router.get('/', checkPermission('policies', 'view'), getPolicies);
+router.get('/:id', checkPermission('policies', 'view'), getPolicyById);
+router.get('/:id/download', checkPermission('policies', 'view'), downloadPolicy);
 
 // Write access: admin only
 router.post('/', authorize('admin'), upload.single('file'), createPolicy);
