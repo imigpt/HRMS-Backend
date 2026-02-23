@@ -4,28 +4,33 @@ const path = require('path');
 // Configure multer for memory storage (we'll upload to Cloudinary)
 const storage = multer.memoryStorage();
 
-// File filter to accept images, documents, and audio
+// File filter to accept images, documents, audio, and video
 const fileFilter = (req, file, cb) => {
   const imageTypes = /jpeg|jpg|png|gif|webp/;
-  const documentTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv/;
+  const documentTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|json|yaml|yml|md/;
   const audioTypes = /mp3|wav|ogg|webm|m4a/;
+  const videoTypes = /mp4|avi|mov|mkv|wmv|flv|webm/;
   
   const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
   
   // Check if file extension matches allowed types
-  if (imageTypes.test(ext) || documentTypes.test(ext) || audioTypes.test(ext)) {
+  if (imageTypes.test(ext) || documentTypes.test(ext) || audioTypes.test(ext) || videoTypes.test(ext)) {
     return cb(null, true);
   }
   
   // Also check mimetype for common types
   if (file.mimetype.startsWith('image/') || 
       file.mimetype.startsWith('audio/') ||
+      file.mimetype.startsWith('video/') ||
       file.mimetype === 'application/pdf' ||
+      file.mimetype === 'application/json' ||
       file.mimetype.includes('document') ||
       file.mimetype.includes('spreadsheet') ||
       file.mimetype.includes('presentation') ||
       file.mimetype === 'text/plain' ||
-      file.mimetype === 'text/csv') {
+      file.mimetype === 'text/csv' ||
+      file.mimetype === 'text/yaml' ||
+      file.mimetype === 'text/markdown') {
     return cb(null, true);
   }
   
@@ -35,7 +40,7 @@ const fileFilter = (req, file, cb) => {
 // Create multer upload instance
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit for chat files
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for task attachments/videos
   fileFilter: fileFilter
 });
 

@@ -92,12 +92,11 @@ const createTask = async (taskData, assignerId, assignerRole, companyId) => {
   // Determine if task is deletable by employee
   const isDeletableByEmployee = assignerRole === ROLES.EMPLOYEE;
   
-  const task = await Task.create({
+  const taskPayload = {
     title,
     description,
     assignedTo,
     assignedBy: assignerId,
-    company: companyId,
     priority: priority || TASK_PRIORITY.MEDIUM,
     status: TASK_STATUS.TODO,
     dueDate: dueDate ? new Date(dueDate) : null,
@@ -105,7 +104,14 @@ const createTask = async (taskData, assignerId, assignerRole, companyId) => {
     notes,
     createdBy: assignerRole,
     isDeletableByEmployee
-  });
+  };
+
+  // Only include company if available
+  if (companyId) {
+    taskPayload.company = companyId;
+  }
+
+  const task = await Task.create(taskPayload);
   
   await task.populate([
     { path: 'assignedTo', select: 'name employeeId department position' },
@@ -238,8 +244,13 @@ const deleteTask = async (taskId, userId, userRole) => {
 /**
  * Get tasks with filters
  */
-const getTasks = async (companyId, filters = {}) => {
-  const query = { company: companyId };
+const getTasks = async (companyId, filters = {}, userRole = null) => {
+  const query = {};
+  
+  // Only filter by company if companyId is set (admin without company sees all)
+  if (companyId) {
+    query.company = companyId;
+  }
   
   // Assigned to filter
   if (filters.assignedTo) {
@@ -297,8 +308,8 @@ const getTaskById = async (taskId, userId, userRole, companyId) => {
     throw new Error(ERROR_MESSAGES.TASK_NOT_FOUND);
   }
   
-  // Verify company access
-  if (task.company.toString() !== companyId.toString()) {
+  // Verify company access (skip if either side has no company)
+  if (task.company && companyId && task.company.toString() !== companyId.toString()) {
     throw new Error(ERROR_MESSAGES.COMPANY_ACCESS_DENIED);
   }
   
@@ -367,7 +378,12 @@ const updateSubTask = async (taskId, subTaskId, completed, userId, userRole) => 
  * Get task statistics
  */
 const getTaskStatistics = async (companyId, userId, userRole) => {
-  const query = { company: companyId };
+  const query = {};
+  
+  // Only filter by company if set (admin without company sees all)
+  if (companyId) {
+    query.company = companyId;
+  }
   
   // If employee, only show their tasks
   if (userRole === ROLES.EMPLOYEE) {
@@ -399,6 +415,57 @@ const getTaskStatistics = async (companyId, userId, userRole) => {
   return stats;
 };
 
+/**
+ * Add review to task (HR/Admin only)
+ */
+const addReview = async (taskId, reviewData, userId, userRole) => {
+  if (userRole !== ROLES.HR && userRole !== ROLES.ADMIN) {
+    throw new Error('Only HR and Admin can review tasks');
+  }
+
+  const task = await Task.findById(taskId);
+  if (!task) {
+    throw new Error(ERROR_MESSAGES.TASK_NOT_FOUND);
+  }
+
+  task.review = {
+    comment: reviewData.comment,
+    rating: reviewData.rating,
+    reviewedBy: userId,
+    reviewedAt: new Date()
+  };
+
+  await task.save();
+  await task.populate([
+    { path: 'assignedTo', select: 'name employeeId department position' },
+    { path: 'assignedBy', select: 'name employeeId' },
+    { path: 'review.reviewedBy', select: 'name employeeId' }
+  ]);
+
+  return task;
+};
+
+/**
+ * Delete attachment from task
+ */
+const deleteAttachment = async (taskId, attachmentId, userId, userRole) => {
+  const task = await Task.findById(taskId);
+  if (!task) {
+    throw new Error(ERROR_MESSAGES.TASK_NOT_FOUND);
+  }
+
+  if (!canModifyTask(task, userId, userRole)) {
+    throw new Error(ERROR_MESSAGES.FORBIDDEN);
+  }
+
+  task.attachments = task.attachments.filter(
+    att => att._id.toString() !== attachmentId
+  );
+
+  await task.save();
+  return task;
+};
+
 module.exports = {
   createTask,
   updateTask,
@@ -409,6 +476,8 @@ module.exports = {
   addTaskAttachment,
   updateSubTask,
   getTaskStatistics,
+  addReview,
+  deleteAttachment,
   canModifyTask,
   canDeleteTask
 };

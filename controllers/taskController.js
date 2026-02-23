@@ -6,6 +6,9 @@
  */
 
 const taskService = require('../services/task.service');
+const User = require('../models/User.model');
+const Company = require('../models/Company.model');
+const { uploadToCloudinary } = require('../utils/uploadToCloudinary');
 const { HTTP_STATUS, SUCCESS_MESSAGES, ROLES } = require('../constants');
 
 /**
@@ -17,14 +20,25 @@ exports.createTask = async (req, res) => {
   try {
     const assignerId = req.user._id;
     const assignerRole = req.user.role;
-    const companyId = req.user.company;
+    let companyId = req.user.company;
     
-    if (!companyId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        message: 'User must be associated with a company'
-      });
+    // If creator has no company (e.g. admin), derive it from the assignedTo employee
+    if (!companyId && req.body.assignedTo) {
+      const assignee = await User.findById(req.body.assignedTo).select('company');
+      if (assignee && assignee.company) {
+        companyId = assignee.company;
+      }
     }
+    
+    // Fallback: find any company in the system (single-company mode)
+    if (!companyId) {
+      const defaultCompany = await Company.findOne().select('_id');
+      if (defaultCompany) {
+        companyId = defaultCompany._id;
+      }
+    }
+    
+    // Company is now optional - allow task creation even without company
     
     const task = await taskService.createTask(
       req.body,
@@ -53,7 +67,8 @@ exports.createTask = async (req, res) => {
  */
 exports.getTasks = async (req, res) => {
   try {
-    const companyId = req.user.company;
+    // Admin without company can see all tasks; others scoped to their company
+    const companyId = req.user.company || null;
     const filters = { ...req.query };
     
     // If employee, only show tasks assigned to or by them
@@ -61,7 +76,7 @@ exports.getTasks = async (req, res) => {
       filters.assignedTo = req.user._id;
     }
     
-    const tasks = await taskService.getTasks(companyId, filters);
+    const tasks = await taskService.getTasks(companyId, filters, req.user.role);
     
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -197,7 +212,32 @@ exports.deleteTask = async (req, res) => {
  */
 exports.addAttachment = async (req, res) => {
   try {
-    const attachmentData = req.body;
+    if (!req.file) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const fileType = req.body.fileType || 'document'; // image, video, document, api
+    
+    // Determine resource type for Cloudinary
+    let resourceType = 'auto';
+    if (fileType === 'image') resourceType = 'image';
+    else if (fileType === 'video') resourceType = 'video';
+    else resourceType = 'raw';
+
+    const uploadResult = await uploadToCloudinary(req.file.buffer, {
+      folder: 'task-attachments',
+      resource_type: resourceType
+    });
+
+    const attachmentData = {
+      name: req.file.originalname,
+      type: fileType,
+      url: uploadResult.secure_url,
+      publicId: uploadResult.public_id
+    };
     
     const task = await taskService.addTaskAttachment(
       req.params.id,
@@ -275,6 +315,69 @@ exports.getTaskStatistics = async (req, res) => {
     });
   } catch (error) {
     res.status(HTTP_STATUS.SERVER_ERROR).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Add review to task (HR/Admin only)
+ * @route   PUT /api/tasks/:id/review
+ * @access  Private (HR/Admin)
+ */
+exports.addReview = async (req, res) => {
+  try {
+    const { comment, rating } = req.body;
+    
+    if (!comment) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Review comment is required'
+      });
+    }
+    
+    const task = await taskService.addReview(
+      req.params.id,
+      { comment, rating: rating ? parseInt(rating) : undefined },
+      req.user._id,
+      req.user.role
+    );
+    
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Review added successfully',
+      data: task
+    });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete attachment from task
+ * @route   DELETE /api/tasks/:id/attachments/:attachmentId
+ * @access  Private
+ */
+exports.deleteAttachment = async (req, res) => {
+  try {
+    const task = await taskService.deleteAttachment(
+      req.params.id,
+      req.params.attachmentId,
+      req.user._id,
+      req.user.role
+    );
+    
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Attachment deleted successfully',
+      data: task
+    });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       message: error.message
     });

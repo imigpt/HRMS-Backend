@@ -49,7 +49,7 @@ const taskSchema = new mongoose.Schema({
   company: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Company',
-    required: true // CRITICAL: Enforce company association
+    required: false // Allow tasks without company (single-company / dev mode)
   },
   priority: {
     type: String,
@@ -77,6 +77,20 @@ const taskSchema = new mongoose.Schema({
     required: true
   },
   completedAt: Date,
+  // Review from HR/Admin
+  review: {
+    comment: String,
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reviewedAt: Date
+  },
   // CRITICAL: Track if employee can delete/modify
   isDeletableByEmployee: {
     type: Boolean,

@@ -11,6 +11,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { validateTask, validateObjectId } = require('../middleware/validator');
 const { enforceCompanyAccess } = require('../middleware/companyIsolation.middleware');
+const upload = require('../middleware/uploadMiddleware');
 const taskController = require('../controllers/taskController');
 const Task = require('../models/Task.model');
 
@@ -76,14 +77,38 @@ router.put(
 
 /**
  * @route   POST /api/tasks/:id/attachments
- * @desc    Add attachment to task
+ * @desc    Add attachment to task (file upload)
  * @access  Private (All authenticated users)
  */
 router.post(
   '/:id/attachments',
   validateObjectId('id'),
   enforceCompanyAccess(Task),
+  upload.single('attachment'),
   taskController.addAttachment
+);
+
+/**
+ * @route   DELETE /api/tasks/:id/attachments/:attachmentId
+ * @desc    Delete attachment from task
+ * @access  Private (All authenticated users)
+ */
+router.delete(
+  '/:id/attachments/:attachmentId',
+  validateObjectId('id'),
+  taskController.deleteAttachment
+);
+
+/**
+ * @route   PUT /api/tasks/:id/review
+ * @desc    Add review to task (HR/Admin only)
+ * @access  Private (HR/Admin)
+ */
+router.put(
+  '/:id/review',
+  validateObjectId('id'),
+  authorize('hr', 'admin'),
+  taskController.addReview
 );
 
 /**
