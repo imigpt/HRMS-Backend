@@ -1041,6 +1041,15 @@ exports.uploadMedia = async (req, res) => {
       unique_filename: true
     });
 
+    // Validate Cloudinary returned a real URL
+    if (!result || !result.secure_url || result.secure_url.trim() === '') {
+      throw new Error(
+        'Cloudinary upload failed: No URL returned. ' +
+        'Check your CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in the .env file. ' +
+        `Result received: ${JSON.stringify(result)}`
+      );
+    }
+
     console.log('   ✅ Cloudinary upload successful:', result.secure_url);
 
     const attachment = {

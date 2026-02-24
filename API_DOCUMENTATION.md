@@ -431,3 +431,108 @@ Notes: The frontend flow for forgot password should call `POST /api/auth/forgot-
 ---
 
 If you want, I can append cURL examples or a ready-made Postman collection for these endpoints to this document.
+
+---
+
+---
+
+## Half-Day Leave (POST /api/leaves/half-day)
+
+Create a half-day leave request for an employee. This endpoint is used by the frontend `LeaveModule` when a user applies for a half-day (morning or afternoon).
+
+- **Endpoint:** `POST /api/leaves/half-day`
+- **Auth:** `Authorization: Bearer <token>` (required)
+- **Content-Type:** `application/json`
+
+Request body schema:
+
+- `employeeId` (string, optional) — MongoDB `_id` of the employee; if omitted the server uses the authenticated user `req.user._id`.
+- `leaveType` (string, required) — one of: `sick`, `paid`, `unpaid`.
+- `date` (string, required) — local date in `YYYY-MM-DD` format (frontend sends local date; server treats it as local midnight).
+- `session` (string, required) — `morning` or `afternoon`.
+- `reason` (string, required) — brief reason (frontend enforces minimum 10 characters).
+- `leavePolicyId` (string, optional) — reference to a company leave policy if applicable.
+- `attachments` (array[string], optional) — array of file URLs or IDs (if files uploaded separately).
+
+Example request body:
+
+```json
+{
+  "leaveType": "paid",
+  "date": "2026-03-05",
+  "session": "morning",
+  "reason": "Doctor appointment",
+  "leavePolicyId": "policy_123",
+  "attachments": ["https://files.example.com/doc1.pdf"]
+}
+```
+
+Success response (201 Created):
+
+```json
+{
+  "success": true,
+  "message": "Half-day leave request submitted successfully",
+  "data": {
+    "_id": "60f7c2a1b9e1f23d4c8a9b2c",
+    "user": "60f7c2a1b9e1f23d4c8a9b2c",
+    "leaveType": "paid",
+    "isHalfDay": true,
+    "session": "morning",
+    "startDate": "2026-03-05T00:00:00.000Z",
+    "endDate": "2026-03-05T00:00:00.000Z",
+    "days": 0.5,
+    "status": "pending",
+    "reason": "Doctor appointment",
+    "createdAt": "2026-02-24T10:12:34.000Z"
+  }
+}
+```
+
+Common error responses:
+
+- **400 Bad Request** — validation failed (missing or invalid fields). Example:
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": ["Session is required", "Date is invalid"]
+}
+```
+
+- **401 Unauthorized** — missing/invalid auth token.
+
+- **409 Conflict** — existing leave conflict (full-day or same-session half-day):
+
+```json
+{
+  "success": false,
+  "message": "A half-day or full-day leave already exists for this date and session"
+}
+```
+
+- **400 Insufficient Balance** — when requesting `paid`/`sick` and remaining balance < 0.5:
+
+```json
+{
+  "success": false,
+  "message": "Insufficient paid leave balance for a half-day request. Contact your admin to assign leave balance."
+}
+```
+
+Notes & business rules:
+
+- The server treats `unpaid` leave as unlimited; it bypasses leave-balance checks.
+- Full-day approved leaves covering the requested date will block half-day creation (conflict) and also prevent the user from checking in that day.
+- Approved half-day leaves do not block check-in (employee may still check in/out for the other session).
+- Date validation uses local date semantics to avoid timezone off-by-one errors. Frontend should send `YYYY-MM-DD`.
+
+cURL example:
+
+```bash
+curl -X POST "https://your-server.example.com/api/leaves/half-day" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"leaveType":"paid","date":"2026-03-05","session":"morning","reason":"Doctor appointment"}'
+```

@@ -426,8 +426,32 @@ exports.deleteRole = async (req, res) => {
     if (!role) {
       return res.status(404).json({ success: false, message: 'Role not found' });
     }
+    // Allow deletion of system roles only when explicitly confirmed by admin
     if (role.isSystem) {
-      return res.status(400).json({ success: false, message: 'Cannot delete system roles' });
+      const { force, confirmRoleName, reassignUsersTo } = req.body || {};
+      if (!force || !confirmRoleName || confirmRoleName !== role.roleName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete system roles without explicit confirmation. To delete, send { force: true, confirmRoleName: "<roleName>" } in request body.'
+        });
+      }
+
+      // If a reassignment role is provided, reassign affected users
+      if (reassignUsersTo) {
+        // Accept either a builtin role string or an existing Role.roleName
+        // Validate target exists (either in User enum or in Roles collection)
+        const validBuiltin = ['admin', 'hr', 'employee', 'client'];
+        let targetRoleName = reassignUsersTo;
+        if (!validBuiltin.includes(reassignUsersTo)) {
+          const targetRole = await Role.findOne({ roleName: reassignUsersTo });
+          if (!targetRole) {
+            return res.status(400).json({ success: false, message: 'reassignUsersTo role not found' });
+          }
+          targetRoleName = targetRole.roleName;
+        }
+
+        await User.updateMany({ role: role.roleName }, { $set: { role: targetRoleName } });
+      }
     }
 
     await Role.findByIdAndDelete(req.params.id);

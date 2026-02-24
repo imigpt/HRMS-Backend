@@ -42,7 +42,20 @@ const messageSchema = new mongoose.Schema({
 
   // Media attachment (for image, document, voice)
   attachment: {
-    url: String,
+    url: {
+      type: String,
+      required: function () {
+        // URL is required for all non-text message types
+        return this.messageType !== 'text';
+      },
+      validate: {
+        validator: function (v) {
+          // If provided, must be a non-empty string
+          return !v || v.trim().length > 0;
+        },
+        message: 'Attachment URL cannot be empty'
+      }
+    },
     publicId: String, // Cloudinary public ID
     name: String, // Original filename
     size: Number, // File size in bytes

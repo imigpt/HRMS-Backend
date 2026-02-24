@@ -56,6 +56,25 @@ const calculateAttendanceStatus = (checkInTime, standardStartTime = '09:00') => 
  * Check in employee with optional photo
  */
 const checkIn = async (userId, companyId, location, photo = null) => {
+  // Block check-in if employee has an approved leave covering today
+  const Leave = require('../models/Leave.model');
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const activeLeave = await Leave.findOne({
+    user: userId,
+    status: 'approved',
+    startDate: { $lte: todayEnd },
+    endDate: { $gte: todayStart },
+    isHalfDay: { $ne: true }  // full-day leaves block check-in; half-day leaves do not
+  });
+
+  if (activeLeave) {
+    throw new Error(`You are on approved ${activeLeave.leaveType} leave today. Check-in is not allowed.`);
+  }
+
   // Check if already checked in today
   const today = new Date();
   const existingAttendance = await hasAttendanceForDate(userId, today);

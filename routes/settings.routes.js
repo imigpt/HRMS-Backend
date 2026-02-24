@@ -22,7 +22,7 @@ router.put('/category/:category', authorize('admin'), settingsController.updateC
 // ========================
 // HRM Settings
 // ========================
-router.get('/hrm', authorize('admin'), settingsController.getHRMSettings);
+router.get('/hrm', authorize('admin', 'hr', 'employee'), settingsController.getHRMSettings);
 router.put('/hrm', authorize('admin'), settingsController.updateHRMSettings);
 
 // ========================

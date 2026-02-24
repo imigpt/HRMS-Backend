@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 
 const { protect, authorize, checkPermission } = require('../middleware/auth.middleware');
-const { validateLeaveRequest, validateObjectId, validateDateRange } = require('../middleware/validator');
+const { validateLeaveRequest, validateHalfDayLeaveRequest, validateObjectId, validateDateRange } = require('../middleware/validator');
 const { enforceCompanyAccess } = require('../middleware/companyIsolation.middleware');
 const leaveController = require('../controllers/leaveController');
 const Leave = require('../models/Leave.model');
@@ -37,6 +37,22 @@ router.get('/statistics', checkPermission('leaves', 'view'), leaveController.get
  * @access  Private (All authenticated users)
  */
 router.post('/', checkPermission('leaves', 'create'), validateLeaveRequest, leaveController.createLeaveRequest);
+
+/**
+ * @route   POST /api/leave/half-day
+ * @desc    Create half-day leave request
+ * @access  Private (Employee, HR, Admin)
+ * NOTE: No checkPermission gate here — all authenticated users may apply for
+ * their own half-day leave. The permission system would block employees
+ * if 'leaves' is not configured in their role, so we use protect + optional
+ * role guard only. Admins inherit access from protect.
+ */
+router.post(
+  '/half-day',
+  authorize('admin', 'hr', 'employee'),
+  validateHalfDayLeaveRequest,
+  leaveController.createHalfDayLeave
+);
 
 /**
  * @route   GET /api/leave

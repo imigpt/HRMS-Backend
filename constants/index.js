@@ -37,6 +37,12 @@ const ATTENDANCE_STATUS = {
   WORK_FROM_HOME: 'work-from-home'
 };
 
+// Half-Day Sessions
+const HALF_DAY_SESSIONS = {
+  MORNING: 'morning',
+  AFTERNOON: 'afternoon'
+};
+
 // Leave Types
 const LEAVE_TYPES = {
   
@@ -175,6 +181,7 @@ const ERROR_MESSAGES = {
   // Leave
   INSUFFICIENT_BALANCE: 'Insufficient leave balance',
   OVERLAPPING_LEAVE: 'Leave dates overlap with existing leave request',
+  OVERLAPPING_HALF_DAY: 'A half-day or full-day leave already exists for this date and session',
   CANNOT_MODIFY_APPROVED: 'Cannot modify approved leave',
   
   // Task
@@ -198,6 +205,7 @@ const SUCCESS_MESSAGES = {
   
   // Leave
   LEAVE_REQUESTED: 'Leave request submitted successfully',
+  HALF_DAY_LEAVE_REQUESTED: 'Half-day leave request submitted successfully',
   LEAVE_APPROVED: 'Leave approved successfully',
   LEAVE_REJECTED: 'Leave rejected successfully',
   LEAVE_CANCELLED: 'Leave cancelled successfully',
@@ -219,6 +227,7 @@ module.exports = {
   ROLE_HIERARCHY,
   USER_STATUS,
   ATTENDANCE_STATUS,
+  HALF_DAY_SESSIONS,
   LEAVE_TYPES,
   LEAVE_STATUS,
   DEFAULT_LEAVE_BALANCE,

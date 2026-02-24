@@ -5,7 +5,7 @@
  * prevents invalid data from reaching controllers/services.
  */
 
-const { HTTP_STATUS, LEAVE_TYPES, EXPENSE_CATEGORY, TASK_PRIORITY } = require('../constants');
+const { HTTP_STATUS, LEAVE_TYPES, HALF_DAY_SESSIONS, EXPENSE_CATEGORY, TASK_PRIORITY } = require('../constants');
 
 /**
  * Validate required fields
@@ -77,6 +77,66 @@ exports.validateLeaveRequest = (req, res, next) => {
     });
   }
   
+  next();
+};
+
+/**
+ * Validate half-day leave request data
+ */
+exports.validateHalfDayLeaveRequest = (req, res, next) => {
+  const { leaveType, date, session, reason } = req.body;
+
+  const errors = [];
+
+  if (!leaveType) errors.push('Leave type is required');
+  if (!date) errors.push('Date is required');
+  if (!session) errors.push('Session is required (morning or afternoon)');
+  if (!reason) errors.push('Reason is required');
+
+  // Validate leave type
+  if (leaveType && !Object.values(LEAVE_TYPES).includes(leaveType)) {
+    errors.push(`Invalid leave type. Must be one of: ${Object.values(LEAVE_TYPES).join(', ')}`);
+  }
+
+  // Validate session
+  if (session && !Object.values(HALF_DAY_SESSIONS).includes(session)) {
+    errors.push(`Invalid session. Must be 'morning' or 'afternoon'`);
+  }
+
+  // Validate date
+  if (date) {
+    // Parse as LOCAL date (not UTC) to avoid timezone off-by-one errors.
+    // e.g. new Date('2026-03-05') is midnight UTC which becomes 'yesterday'
+    // in UTC- timezones when compared with local midnight.
+    const parts = String(date).split('T')[0].split('-').map(Number);
+    const d = parts.length === 3
+      ? new Date(parts[0], parts[1] - 1, parts[2])  // local midnight
+      : new Date(date);
+
+    if (isNaN(d.getTime())) {
+      errors.push('Invalid date format. Use YYYY-MM-DD');
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);  // local midnight
+      if (d < today) {
+        errors.push('Cannot request leave for past dates');
+      }
+      // Cannot be weekend
+      const day = d.getDay();
+      if (day === 0 || day === 6) {
+        errors.push('Cannot request half-day leave on a weekend');
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      message: 'Validation failed',
+      errors
+    });
+  }
+
   next();
 };
 

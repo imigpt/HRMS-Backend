@@ -90,9 +90,13 @@ const checkLeaveBalance = async (userId, leaveType, days) => {
   const field = getBalanceField(leaveType);
   if (!field) throw new Error('Invalid leave type');
 
+  // Unpaid leave is always permitted (no balance limit)
+  if (leaveType === 'unpaid') return true;
+
   const balance = await LeaveBalance.findOne({ user: userId }).lean();
   if (!balance) {
-    throw new Error('No leave balance assigned. Contact your admin.');
+    // No balance record yet – block paid/sick leave until admin assigns balance
+    return false;
   }
 
   const usedField = getUsedField(leaveType);
@@ -130,6 +134,86 @@ const restoreLeaveBalance = async (userId, leaveType, days) => {
     { user: userId },
     { $inc: { [usedField]: -days } }
   );
+};
+
+/**
+ * Check for half-day conflicts:
+ * - Any approved/pending full-day leave on this date
+ * - Any approved/pending half-day leave on same date + same session
+ */
+const hasHalfDayConflict = async (userId, date, session) => {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const conflict = await Leave.findOne({
+    user: userId,
+    status: { $in: ['pending', 'approved'] },
+    $or: [
+      // Full-day leave covering this date
+      {
+        isHalfDay: { $ne: true },
+        startDate: { $lte: dayEnd },
+        endDate: { $gte: dayStart }
+      },
+      // Another half-day on the same date & same session
+      {
+        isHalfDay: true,
+        session: session,
+        startDate: { $gte: dayStart, $lte: dayEnd }
+      }
+    ]
+  });
+  return conflict;
+};
+
+/**
+ * Create half-day leave request (0.5 day deduction)
+ */
+const createHalfDayLeaveRequest = async (userId, companyId, leaveData) => {
+  const { leaveType, date, session, reason, attachments } = leaveData;
+
+  // Check for conflicts
+  const conflict = await hasHalfDayConflict(userId, date, session);
+  if (conflict) {
+    throw new Error(
+      conflict.isHalfDay
+        ? 'A half-day leave already exists for this date and session'
+        : 'A full-day leave already exists on this date'
+    );
+  }
+
+  // Check if user has at least 0.5 days balance
+  const hasBalance = await checkLeaveBalance(userId, leaveType, 0.5);
+  if (!hasBalance) {
+    // Provide a specific message for unpaid (should never reach here),
+    // and for paid/sick give a helpful message.
+    throw new Error(
+      leaveType === 'unpaid'
+        ? 'Unpaid leave request failed unexpectedly'
+        : `Insufficient ${leaveType} leave balance for a half-day request. Contact your admin to assign leave balance.`
+    );
+  }
+
+  const leaveDate = new Date(date);
+  leaveDate.setHours(0, 0, 0, 0);
+
+  const leave = await Leave.create({
+    user: userId,
+    company: companyId,
+    leaveType,
+    isHalfDay: true,
+    session,
+    startDate: leaveDate,
+    endDate: leaveDate,
+    days: 0.5,
+    reason,
+    attachments: attachments || [],
+    status: 'pending'
+  });
+
+  return leave;
 };
 
 /**
@@ -379,6 +463,7 @@ const getLeaveStatistics = async (userId, year) => {
 
 module.exports = {
   createLeaveRequest,
+  createHalfDayLeaveRequest,
   approveLeave,
   rejectLeave,
   cancelLeave,

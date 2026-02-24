@@ -35,6 +35,31 @@ exports.createLeaveRequest = async (req, res) => {
 };
 
 /**
+ * @desc    Create half-day leave request
+ * @route   POST /api/leave/half-day
+ * @access  Private (All authenticated users)
+ */
+exports.createHalfDayLeave = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const companyId = req.user.company || null;
+
+    const leave = await leaveService.createHalfDayLeaveRequest(userId, companyId, req.body);
+
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      message: SUCCESS_MESSAGES.HALF_DAY_LEAVE_REQUESTED,
+      data: leave
+    });
+  } catch (error) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
  * @desc    Get leave requests
  * @route   GET /api/leave
  * @access  Private
