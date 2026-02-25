@@ -260,13 +260,14 @@ exports.cancelLeave = async (req, res) => {
  */
 exports.getLeaveBalance = async (req, res) => {
   try {
-    const userId = req.query.userId || req.user._id;
+    // Normalize to string so ObjectId vs string comparison is always reliable
+    const userId = (req.query.userId || req.user._id).toString();
     
     // Employees can only view their own balance
     if (req.user.role === ROLES.EMPLOYEE && userId !== req.user._id.toString()) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied: you can only view your own leave balance'
       });
     }
     
@@ -291,14 +292,15 @@ exports.getLeaveBalance = async (req, res) => {
  */
 exports.getLeaveStatistics = async (req, res) => {
   try {
-    const userId = req.query.userId || req.user._id;
+    // Normalize to string so ObjectId vs string comparison is always reliable
+    const userId = (req.query.userId || req.user._id).toString();
     const year = req.query.year || new Date().getFullYear();
     
     // Employees can only view their own statistics
     if (req.user.role === ROLES.EMPLOYEE && userId !== req.user._id.toString()) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied: you can only view your own leave statistics'
       });
     }
     
